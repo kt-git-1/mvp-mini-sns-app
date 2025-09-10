@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: mini-sns
+  messages:
+    basename: messages
+  jpa:
+    hibernate:
+      ddl-auto: none      # ← スキーマはFlywayで管理
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+# デバッグ時に便利（必要に応じて）
+server:
+  error:
+    include-message: always
+    include-binding-errors: always

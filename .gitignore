@@ -1,0 +1,16 @@
+# Frontend (Next.js)
+frontend/node_modules/
+frontend/.next/
+frontend/.turbo/
+frontend/.vercel/
+frontend/dist/
+
+# Backend (Spring/Gradle)
+backend/build/
+backend/out/
+backend/.gradle/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
