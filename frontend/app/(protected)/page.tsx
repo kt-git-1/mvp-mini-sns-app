@@ -1,7 +1,7 @@
 "use client";
 import useSWRInfinite from "swr/infinite";
 import { useEffect, useState } from "react";
-import { fetchTimeline, createPost } from "../../lib/api";
+import { fetchTimeline, createPost } from "../lib/api";
 
 async function getToken(): Promise<string|null> {
   const r = await fetch("/api/session"); const { token } = await r.json(); return token;

@@ -3,6 +3,7 @@ const J = { "Content-Type": "application/json" };
 
 export async function signup(username: string, password: string) {
   const r = await fetch(`${API}/auth/signup`, { method: "POST", headers: J, body: JSON.stringify({ username, password }) });
+  console.log(r);
   if (!r.ok) throw new Error("signup failed");
   return r.json(); // { id, username }
 }

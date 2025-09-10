@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { me } from "../../../lib/api";
+import { me } from "../../lib/api";
 
 export default async function Page() {
   const cookieStore = await cookies();

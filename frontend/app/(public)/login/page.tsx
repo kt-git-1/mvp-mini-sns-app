@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { login } from "../../../lib/api";
+import { login } from "../../lib/api";
 
 export default function Page() {
   const r = useRouter();
