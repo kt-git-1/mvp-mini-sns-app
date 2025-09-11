@@ -1,34 +1,28 @@
 "use client";
 import useSWRInfinite from "swr/infinite";
 import { useState } from "react";
-
-type Post = {
-  id: number | string;
-  user: { id: number | string; username: string } | null;
-  content: string;
-  createdAt?: string;
-};
-
-type TimelineRes = { items: Post[]; nextCursor?: string | null };
+import { createPost, fetchTimeline, type TimelineRes } from "../lib/api";
+import Link from "next/link"
 
 const PAGE_SIZE = 20;
 
-const fetcher = (url: string) =>
-  fetch(url, { cache: "no-store" }).then((r) => {
-    if (!r.ok) throw new Error("timeline failed");
-    return r.json() as Promise<TimelineRes>;
-  });
+// SWR のキーは [ "timeline", cursor ] のタプルにして薄いラッパを呼ぶ
+const getKey = (index: number, prev: TimelineRes | null) => {
+  if (prev && !prev.nextCursor && index > 0) return null; // 終端
+  const cursor = index === 0 ? null : prev?.nextCursor ?? null;
+  return ["timeline", cursor] as const;
+};
+
+// タプルキーを受け取り、第2要素 (cursor) を使って BFF を叩く
+const fetcher = (args: readonly ["timeline", string | null]) => {
+  const [, cursor] = args;
+  return fetchTimeline(cursor, PAGE_SIZE);
+};
 
 export default function TimelinePage() {
-  const getKey = (index: number, prev: TimelineRes | null) => {
-    if (prev && !prev.nextCursor && index > 0) return null; // 終端
-    const u = new URL("/api/timeline", window.location.origin);
-    u.searchParams.set("size", String(PAGE_SIZE));
-    if (index > 0 && prev?.nextCursor) u.searchParams.set("cursor", prev.nextCursor);
-    return u.toString();
-  };
+  const { data, error, size, setSize, isValidating, mutate } =
+    useSWRInfinite<TimelineRes, Error, typeof getKey>(getKey, fetcher);
 
-  const { data, error, size, setSize, isValidating, mutate } = useSWRInfinite<TimelineRes>(getKey, fetcher);
   const items = data?.flatMap((d) => d.items) ?? [];
   const isEnd = data && data[data.length - 1]?.nextCursor == null;
 
@@ -38,18 +32,13 @@ export default function TimelinePage() {
     e.preventDefault();
     const text = content.trim();
     if (!text || text.length > 280) return alert("1〜280文字で入力してください");
-
-    // 送信
-    const r = await fetch("/api/posts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: text }),
-    });
-    if (!r.ok) return alert("投稿に失敗しました");
-
-    setContent("");
-    // 先頭を最新にするため再取得
-    await mutate();
+    try {
+      await createPost(text);  // ← 薄いラッパ経由で /api/posts
+      setContent("");
+      await mutate();          // 先頭更新
+    } catch (e: any) {
+      alert(e?.message ?? "投稿に失敗しました");
+    }
   }
 
   return (
@@ -74,11 +63,18 @@ export default function TimelinePage() {
       <ul className="space-y-4">
         {items.map((p) => (
           <li key={p.id} className="border p-3 rounded">
-            <div className="text-sm text-gray-600">
-              {p.user?.username ?? "unknown"}・{p.createdAt ? new Date(p.createdAt).toLocaleString() : ""}
-            </div>
-            <p className="whitespace-pre-wrap mt-1">{p.content}</p>
-          </li>
+          <div className="text-sm text-gray-600">
+            <Link href={`/users/${p.user?.id ?? ""}`} className="underline">
+              {p.user?.username ?? "unknown"}
+            </Link>
+            ・{p.createdAt ? new Date(p.createdAt).toLocaleString() : ""}
+          </div>
+          <p className="whitespace-pre-wrap mt-1">
+            <Link href={`/posts/${p.id}`} className="hover:underline">
+              {p.content}
+            </Link>
+          </p>
+        </li>
         ))}
       </ul>
 
