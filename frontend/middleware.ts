@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-/** .env から名前が来ない事故を避ける保険 */
 const COOKIE_NAME = process.env.SESSION_COOKIE_NAME ?? "ms_token";
 
 /** 公開パス（permitAll） */
