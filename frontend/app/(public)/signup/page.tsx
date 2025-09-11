@@ -1,30 +1,43 @@
 "use client";
-import { useRouter } from "next/navigation";
-import { signup, login } from "../../lib/api";
+import { useRouter, useSearchParams } from "next/navigation";
+import { signup } from "../../lib/api";
+
+function resolveNext(sp: URLSearchParams) {
+  const fallback = "/mypage";
+  const n = sp.get("next");
+  if (!n) return fallback;
+  try {
+    const u = new URL(n, window.location.origin);
+    if (
+      u.origin !== window.location.origin ||
+      u.pathname.startsWith("/api") ||
+      u.pathname.startsWith("/_next") ||
+      u.pathname === "/login" ||
+      u.pathname === "/signup"
+    ) return fallback;
+    return `${u.pathname}${u.search}${u.hash}`;
+  } catch { return fallback; }
+}
 
 export default function Page() {
   const r = useRouter();
+  const sp = useSearchParams();
 
   async function onSubmit(formData: FormData) {
-    const username = String(formData.get("username")||"");
-    const password = String(formData.get("password")||"");
+    const username = String(formData.get("username") || "");
+    const password = String(formData.get("password") || "");
+    // バリデーション
+    if (username.length < 3 || username.length > 30 || password.length < 8 || password.length > 128) {
+      alert("入力の長さが不正です");
+      return;
+    }
 
     try {
-        // バリデーション条件は仕様に一致（ユーザー名3..30、パスワード8..128）
-        console.log(username, password);
-        if (username.length < 3 || password.length < 8) return alert("入力が短すぎます");
-        if (username.length > 30 || password.length > 128) return alert("入力が長すぎます");
-
-        await signup(username, password);
-        alert("アカウントが作成されました");
-
-        const { token } = await login(username, password); // 直後にログイン
-        alert("ログインしました");
-
-        await fetch("/api/session", { method: "POST", body: JSON.stringify({ token }) });
-        r.push("/");
-    } catch (error) {
-        alert("エラーが発生しました: " + error);
+      await signup(username, password);        // ← BFF が signup + auto login + Cookie 設定
+      alert("サインアップしました");
+      r.replace(resolveNext(sp));              // ← デフォルト /mypage
+    } catch (e: any) {
+      alert(e?.message ?? "サインアップに失敗しました");
     }
   }
 

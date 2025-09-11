@@ -2,15 +2,30 @@ const API = process.env.NEXT_PUBLIC_API_BASE_URL!;
 const J = { "Content-Type": "application/json" };
 
 export async function signup(username: string, password: string) {
-  const r = await fetch(`${API}/auth/signup`, { method: "POST", headers: J, body: JSON.stringify({ username, password }) });
-  console.log(r);
-  if (!r.ok) throw new Error("signup failed");
-  return r.json(); // { id, username }
+  const r = await fetch("/api/auth/signup", {
+    method: "POST",
+    headers: J,
+    body: JSON.stringify({ username, password }),
+  });
+  if (!r.ok) {
+    let msg = `HTTP ${r.status}`;
+    try { const data = await r.json(); msg = data?.error ?? msg; } catch {}
+    throw new Error(msg);
+  }
+  return r.json(); // { authenticated: true }
 }
 
 export async function login(username: string, password: string) {
-  const r = await fetch(`${API}/auth/login`, { method: "POST", headers: J, body: JSON.stringify({ username, password }) });
-  if (!r.ok) throw new Error("login failed");
+  const r = await fetch("/api/auth/login", { 
+    method: "POST", 
+    headers: J, 
+    body: JSON.stringify({ username, password }),
+   });
+  if (!r.ok) {
+    let msg = `HTTP ${r.status}`;
+    try { const data = await r.json(); msg = data?.error ?? msg; } catch {}
+    throw new Error(msg);
+  }
   return r.json(); // { token }
 }
 
