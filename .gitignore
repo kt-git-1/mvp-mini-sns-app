@@ -12,5 +12,7 @@ backend/.gradle/
 
 # OS / IDE
 .DS_Store
+.env.local
 .idea/
 .vscode/
+node_modules/

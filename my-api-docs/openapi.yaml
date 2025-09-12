@@ -63,7 +63,7 @@ components:
       properties:
         token:
           type: string
-          description: JWT token (HS256)
+          description: 'JWT token (HS256)'
       required: [token]
 
     MypageResponse:
@@ -71,7 +71,7 @@ components:
       properties:
         username:
           type: string
-          description: ログインユーザー名
+          description: 'ログインユーザー名'
 
     CreatePostRequest:
       type: object
@@ -133,21 +133,21 @@ components:
       properties:
         error:
           type: string
-          description: エラー種別（例: invalid_request, unauthorized 等）
+          description: 'エラー種別（例: invalid_request, unauthorized 等）'
         message:
           type: string
-          description: 人間向けエラーメッセージ
+          description: '人間向けエラーメッセージ'
         path:
           type: string
-          description: リクエストパス
+          description: 'リクエストパス'
         status:
           type: integer
-          description: HTTP ステータスコード
+          description: 'HTTP ステータスコード'
         timestamp:
           type: string
           format: date-time
-          description: ISO-8601 UTC
-      required: [error, message, path, status, timestamp]
+          description: 'ISO-8601 UTC'
+          required: [error, message, path, status, timestamp]
 
 paths:
   /health:
