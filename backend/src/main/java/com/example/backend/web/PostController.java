@@ -4,6 +4,7 @@ import com.example.backend.service.PostService;
 import com.example.backend.web.dto.PostDtos;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,7 +16,7 @@ public class PostController {
     public PostController(PostService posts) { this.posts = posts; }
 
     @PostMapping("/posts")
-    public PostDtos.PostResponse create(Authentication auth, @RequestBody @Valid PostDtos.CreatePostRequest req) {
+    public PostDtos.PostResponse create(@AuthenticationPrincipal Authentication auth, @RequestBody @Valid PostDtos.CreatePostRequest req) {
         return posts.create(auth.getName(), req.content());
     }
 }
