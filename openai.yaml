@@ -1,0 +1,388 @@
+openapi: 3.1.0
+info:
+  title: miniSNS API
+  version: 1.0.0
+  description: |
+    miniSNS アプリの API 仕様。サインアップ、ログイン、マイページ、投稿作成、フォロー操作、タイムライン取得、
+    ヘルスチェックを提供します。認証には JWT を使用し、Keyset ページングを採用しています。
+
+servers:
+  - url: http://localhost:8080
+    description: Local
+  - url: https://api.example.com
+    description: Production (example)
+
+tags:
+  - name: Health
+  - name: Auth
+  - name: Profile
+  - name: Posts
+  - name: Follows
+  - name: Timeline
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    SignupRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+      required: [username, password]
+
+    SignupResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+      required: [id, username]
+
+    LoginRequest:
+      type: object
+      properties:
+        username: { type: string }
+        password: { type: string }
+      required: [username, password]
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT token (HS256)
+      required: [token]
+
+    MypageResponse:
+      type: object
+      properties:
+        username:
+          type: string
+          description: ログインユーザー名
+
+    CreatePostRequest:
+      type: object
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 280
+      required: [content]
+
+    Post:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        username:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, userId, username, content, createdAt]
+
+    TimelineItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        content:
+          type: string
+      required: [id, userId, createdAt, content]
+
+    TimelineResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimelineItem'
+        nextCursor:
+          type: string
+          nullable: true
+      required: [items]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: エラー種別（例: invalid_request, unauthorized 等）
+        message:
+          type: string
+          description: 人間向けエラーメッセージ
+        path:
+          type: string
+          description: リクエストパス
+        status:
+          type: integer
+          description: HTTP ステータスコード
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO-8601 UTC
+      required: [error, message, path, status, timestamp]
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Healthチェック
+      description: アプリケーションが稼働中かどうか確認します。
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+              examples:
+                ok:
+                  value: { "status": "ok" } # 実装では status フィールドのみ返却:contentReference[oaicite:0]{index=0}
+
+  /health/db:
+    get:
+      tags: [Health]
+      summary: データベース接続確認
+      description: データベースが利用可能かチェックします。
+      responses:
+        '200':
+          description: DB OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  db: { type: string, example: up }
+                  check:
+                    type: integer
+                    example: 1
+              examples:
+                up:
+                  value: { "status": "ok", "db": "up", "check": 1 }
+        '503':
+          description: DB down
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                dbDown:
+                  value: { "status": "degraded", "db": "down", "path": "/health/db" }
+
+  /auth/signup:
+    post:
+      tags: [Auth]
+      summary: ユーザー登録
+      description: 新しいユーザーを登録します。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+      responses:
+        '200':
+          description: ユーザー登録成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignupResponse'
+        '400':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: ユーザー名重複
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: ログイン
+      description: 認証して JWT トークンを発行します。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: 認証成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: 認証失敗
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /mypage:
+    get:
+      tags: [Profile]
+      summary: マイページ
+      description: ログイン中ユーザーの名前を返します。
+      security: [ { bearerAuth: [] } ]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MypageResponse'
+              examples:
+                me:
+                  value: { "username": "kaito" }
+        '401':
+          description: 未認証
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /posts:
+    post:
+      tags: [Posts]
+      summary: 新規投稿作成
+      description: 認証済みユーザーがテキスト投稿を作成します:contentReference[oaicite:1]{index=1}。
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePostRequest'
+      responses:
+        '200':
+          description: 投稿作成成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+        '400':
+          description: バリデーションエラー（空文字や280字超）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401':
+          description: 未認証
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /follows/{targetId}:
+    post:
+      tags: [Follows]
+      summary: フォロー
+      description: 指定ユーザーをフォローします:contentReference[oaicite:2]{index=2}。
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - in: path
+          name: targetId
+          schema: { type: integer, format: int64 }
+          required: true
+          description: フォロー対象ユーザー ID
+      responses:
+        '204':
+          description: フォロー完了（レスポンスボディなし）
+        '401':
+          description: 未認証
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+    delete:
+      tags: [Follows]
+      summary: フォロー解除
+      description: 指定ユーザーのフォローを解除します:contentReference[oaicite:3]{index=3}。
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - in: path
+          name: targetId
+          schema: { type: integer, format: int64 }
+          required: true
+          description: フォロー対象ユーザー ID
+      responses:
+        '204':
+          description: フォロー解除完了（レスポンスボディなし）
+        '401':
+          description: 未認証
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /timeline:
+    get:
+      tags: [Timeline]
+      summary: タイムライン取得
+      description: 認証ユーザーとフォロー先の投稿を新しい順に取得します:contentReference[oaicite:4]{index=4}。
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - in: query
+          name: cursor
+          schema:
+            type: string
+            nullable: true
+          description: Keyset ページング用の opaque カーソル
+        - in: query
+          name: size
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: 返却件数
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TimelineResponse' }
+              examples:
+                firstPage:
+                  value:
+                    items:
+                      - { "id": 10, "userId": 1, "createdAt": "2025-09-12T08:00:00Z", "content": "hello" }
+                      - { "id": 9, "userId": 2, "createdAt": "2025-09-12T07:59:00Z", "content": "good morning" }
+                    nextCursor: "eyJhdCI6IjIwMjUtMDktMTJUMDc6NTk6MDBaIiwiaWQiOjEwMDl9"
+        '401':
+          description: 未認証
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
