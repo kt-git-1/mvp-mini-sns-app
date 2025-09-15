@@ -13,7 +13,7 @@ import java.io.IOException;
 
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)
 @Component
-public class AccessLogFilter implements Filter{
+public abstract class AccessLogFilter implements Filter{
     private static final Logger log = LoggerFactory.getLogger(AccessLogFilter.class);
 
     @Override
@@ -29,4 +29,7 @@ public class AccessLogFilter implements Filter{
             log.info("{} {} {} {}ms", req.getMethod(), req.getRequestURI(), res.getStatus(), ms);
         }
     }
+
+    protected abstract void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
+            throws IOException, ServletException;
 }

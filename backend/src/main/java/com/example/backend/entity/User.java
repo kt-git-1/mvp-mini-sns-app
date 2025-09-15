@@ -21,7 +21,7 @@ public class User {
     @Column(name="password_hash", nullable=false)
     private String passwordHash;
 
-    @Column(name="created_at", nullable=false, columnDefinition="timestamptz")
+    @Column(name="created_at", nullable=false, columnDefinition="TIMESTAMP WITH TIME ZONE")
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
     public User(String username, String passwordHash) {

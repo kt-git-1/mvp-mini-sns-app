@@ -23,7 +23,7 @@ public class Post {
     @Column(nullable = false, columnDefinition = "text")
     private String content;
 
-    @Column(name = "created_at", nullable = false, columnDefinition = "timestamptz")
+    @Column(name = "created_at", nullable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE")
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
     public Post(User user, String content) {
