@@ -2,6 +2,7 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '3.5.5'
 	id 'io.spring.dependency-management' version '1.1.7'
+	id 'jacoco'
 }
 
 group = 'com.example'
@@ -49,8 +50,34 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+jacoco {
+	toolVersion = "0.8.10"
+}
+
+jacocoTestReport {
+	dependsOn test
+	reports {
+		xml.required = true
+		html.required = true
+	}
+}
+
+// 閾値（最初は緩めでOK。CIで赤にしたければ有効化）
+jacocoTestCoverageVerification {
+	violationRules {
+		rule {
+			limit {
+				counter = 'LINE'
+				value = 'COVEREDRATIO'
+				minimum = 0.80 // line coverage 80%
+			}
+		}
+	}
+}
+
 tasks.named('test') {
 	useJUnitPlatform()
 	jvmArgs("-javaagent:${configurations.byteBuddyAgent.singleFile}")
 	jvmArgs("-XX:+EnableDynamicAgentLoading")
+	finalizedBy jacocoTestReport
 }
