@@ -1,89 +1,129 @@
 package com.example.backend.web.error;
 
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.HttpStatus;
+import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.MDC;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.validation.FieldError;
-import org.springframework.web.ErrorResponseException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
-import org.springframework.web.server.ResponseStatusException;
 
-import jakarta.validation.ConstraintViolationException;
+import java.util.*;
 
-import java.util.stream.Collectors;
-
-@RestControllerAdvice
+@RestControllerAdvice(basePackages = "com.example.backend.web")
 public class GlobalExceptionHandler {
 
-    private String path(HttpServletRequest req){ return req.getRequestURI(); }
+    // RequestIdFilter の定数を使うと表記ゆれを防げます
+    private static final String REQ_ID_HEADER = com.example.backend.web.log.RequestIdFilter.HDR;     // 例: "X-Request-ID"
+    private static final String MDC_KEY      = com.example.backend.web.log.RequestIdFilter.MDC_KEY;  // 例: "requestId"
 
-    // Bean Validation: @Valid DTO のバリデーション失敗
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIAE(
+            IllegalArgumentException e,
+            HttpServletRequest req,
+            HttpServletResponse res
+    ) {
+        if ("cursor decode error".equalsIgnoreCase(e.getMessage())) {
+            String rid = resolveRequestId(req, res);
+            ensureResponseHeader(res, rid);
+
+            Map<String, Object> body = Map.of(
+                    "status", 400,
+                    "error", "bad_cursor",
+                    "code", "BAD_CURSOR",
+                    "requestId", rid
+            );
+            return ResponseEntity.badRequest().body(body);
+        }
+        // その他のIAEは必要に応じて
+        String rid = resolveRequestId(req, res);
+        ensureResponseHeader(res, rid);
+        Map<String, Object> body = Map.of(
+                "status", 400,
+                "error", "bad_request",
+                "code", "BAD_REQUEST",
+                "requestId", rid
+        );
+        return ResponseEntity.badRequest().body(body);
+    }
+
+    private static String resolveRequestId(HttpServletRequest req, HttpServletResponse res) {
+        // ① MDC → ② レスポンスヘッダ → ③ リクエストヘッダ → ④ 新規発行
+        String fromMdc = MDC.get(MDC_KEY);
+        if (isNotBlank(fromMdc)) return fromMdc;
+
+        String fromRes = res.getHeader(REQ_ID_HEADER);
+        if (isNotBlank(fromRes)) return fromRes;
+
+        String fromReq = req.getHeader(REQ_ID_HEADER);
+        if (isNotBlank(fromReq)) return fromReq;
+
+        return UUID.randomUUID().toString();
+    }
+
+    private static void ensureResponseHeader(HttpServletResponse res, String rid) {
+        if (!isNotBlank(res.getHeader(REQ_ID_HEADER))) {
+            res.setHeader(REQ_ID_HEADER, rid);
+        }
+    }
+
+    private static boolean isNotBlank(String s) {
+        return s != null && !s.isBlank();
+    }
+
+    // バリデーションエラー（@Valid で 400）
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ErrorResponse handleMethodArgumentNotValid(MethodArgumentNotValidException ex, HttpServletRequest req){
-        String msg = ex.getBindingResult().getFieldErrors().stream()
-                .map(this::formatFieldError)
-                .collect(Collectors.joining("; "));
-        return ErrorResponse.of("invalid_request", msg, path(req), HttpStatus.BAD_REQUEST.value());
+    public ResponseEntity<Map<String, Object>> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException e,
+            HttpServletRequest req,
+            HttpServletResponse res
+    ) {
+        String rid = resolveRequestId(req, res);
+        ensureResponseHeader(res, rid);
+
+        List<Map<String, Object>> errors = e.getBindingResult().getFieldErrors().stream()
+                .map(fe -> Map.<String, Object>of(
+                        "field", fe.getField(),
+                        "message", Optional.ofNullable(fe.getDefaultMessage()).orElse("invalid")
+                ))
+                .toList();
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("status", 400);
+        body.put("error", "validation");
+        body.put("code", "VALIDATION_ERROR");
+        body.put("requestId", rid);
+        body.put("errors", errors);
+
+        return ResponseEntity
+                .status(400)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body);
     }
 
-    private String formatFieldError(FieldError fe){
-        return fe.getField() + ": " + (fe.getDefaultMessage() == null ? "invalid" : fe.getDefaultMessage());
+    // JSON が壊れている等（400）
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> handleNotReadable(
+            HttpMessageNotReadableException e,
+            HttpServletRequest req,
+            HttpServletResponse res
+    ) {
+        String rid = resolveRequestId(req, res);
+        ensureResponseHeader(res, rid);
+
+        Map<String, Object> body = Map.of(
+                "status", 400,
+                "error", "invalid_body",
+                "code", "INVALID_BODY",
+                "requestId", rid
+        );
+        return ResponseEntity
+                .status(400)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body);
     }
 
-    // @Validated パラメータ（@Min/@Max 等）の失敗
-    @ExceptionHandler(ConstraintViolationException.class)
-    public ErrorResponse handleConstraintViolation(ConstraintViolationException ex, HttpServletRequest req){
-        String msg = ex.getConstraintViolations().stream()
-                .map(v -> v.getPropertyPath() + ": " + v.getMessage())
-                .collect(Collectors.joining("; "));
-        return ErrorResponse.of("invalid_request", msg, path(req), HttpStatus.BAD_REQUEST.value());
-    }
 
-    // クエリ/Path型不一致、必須パラメータ欠落、JSONパース失敗
-    @ExceptionHandler({
-            MethodArgumentTypeMismatchException.class,
-            MissingServletRequestParameterException.class,
-            HttpMessageNotReadableException.class
-    })
-    public ErrorResponse handleRequestFormat(Exception ex, HttpServletRequest req){
-        return ErrorResponse.of("invalid_request", ex.getMessage(), path(req), HttpStatus.BAD_REQUEST.value());
-    }
-
-    // 競合（例：username UNIQUE違反）
-    @ExceptionHandler(DataIntegrityViolationException.class)
-    public ErrorResponse handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest req){
-        return ErrorResponse.of("conflict", "duplicate or integrity violation", path(req), HttpStatus.CONFLICT.value());
-    }
-
-    // 明示的に投げた ResponseStatusException
-    @ExceptionHandler(ResponseStatusException.class)
-    public ErrorResponse handleRSE(ResponseStatusException ex, HttpServletRequest req){
-        var status = ex.getStatusCode().value();
-        var code = status == 401 ? "unauthorized"
-                : status == 403 ? "forbidden"
-                : status == 404 ? "not_found"
-                : "invalid_request";
-        var message = ex.getReason() == null ? ex.getMessage() : ex.getReason();
-        return ErrorResponse.of(code, message, path(req), status);
-    }
-
-    // Spring 6+ の ErrorResponseException（NotImplemented など）
-    @ExceptionHandler(ErrorResponseException.class)
-    public ErrorResponse handleERE(ErrorResponseException ex, HttpServletRequest req){
-        var status = ex.getStatusCode().value();
-        return ErrorResponse.of("error", ex.getBody().getDetail(), path(req), status);
-    }
-
-    // 最後の砦
-    @ExceptionHandler(Exception.class)
-    public ErrorResponse handleAny(Exception ex, HttpServletRequest req){
-        // ここはログ出力のみして、クライアントへは汎用メッセージを返す
-        ex.printStackTrace();
-        return ErrorResponse.of("internal_error", "unexpected error", path(req), HttpStatus.INTERNAL_SERVER_ERROR.value());
-    }
 }

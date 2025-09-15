@@ -1,9 +1,11 @@
 package com.example.backend.config;
 
 import com.example.backend.security.AuthUser;
+import com.example.backend.security.JsonAccessDeniedHandler;
+import com.example.backend.security.JsonAuthenticationEntryPoint;
+import com.example.backend.web.error.ErrorResponseWriter;
 import com.example.backend.web.log.AccessLogFilter;
 import com.example.backend.web.log.RequestIdFilter;
-import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,10 +36,12 @@ public class SecurityConfig {
 
     private final RequestIdFilter requestIdFilter;
     private final AccessLogFilter accessLogFilter;
+    private final ErrorResponseWriter errorWriter;
 
-    public SecurityConfig(RequestIdFilter requestIdFilter, AccessLogFilter accessLogFilter) {
+    public SecurityConfig(RequestIdFilter requestIdFilter, AccessLogFilter accessLogFilter, ErrorResponseWriter errorWriter) {
         this.requestIdFilter = requestIdFilter;
         this.accessLogFilter = accessLogFilter;
+        this.errorWriter = errorWriter;
     }
 
     /** パスワードハッシュ用（signupで使用） */
@@ -54,6 +58,8 @@ public class SecurityConfig {
         config.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
+        config.setExposedHeaders(List.of("X-Request-ID"));    // ★レスポンスで見えるヘッダ
+        config.setMaxAge(java.time.Duration.ofHours(1));      // ★Preflightキャッシュ
         var source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
@@ -72,39 +78,28 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http, JwtDecoder jwtDecoder) throws Exception {
+        var json401 = new JsonAuthenticationEntryPoint(errorWriter, "X-Request-ID");
+        var json403 = new JsonAccessDeniedHandler(errorWriter, "X-Request-ID");
+
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll() // ★追加（任意）
                         .requestMatchers("/health/**", "/auth/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .httpBasic(b -> b.disable())
                 .formLogin(f -> f.disable())
-                .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint((req, res, e) -> {
-                            res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                            res.setContentType("application/json");
-                            res.getWriter().write("{\"error\":\"unauthorized\"}");
-                        })
-                        .accessDeniedHandler((req, res, e) -> {
-                            res.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                            res.setContentType("application/json");
-                            res.getWriter().write("{\"error\":\"forbidden\"}");
-                        })
-                )
-                // Resource Server + JwtDecoder + カスタムConverter
+                .exceptionHandling(ex -> ex.accessDeniedHandler(json403))
                 .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(jwt -> jwt
-                                .decoder(jwtDecoder)
-                                .jwtAuthenticationConverter(jwtAuthUserConverter())
-                        )
+                        .jwt(jwt -> jwt.decoder(jwtDecoder).jwtAuthenticationConverter(jwtAuthUserConverter()))
+                        .authenticationEntryPoint(json401)
                 );
 
-        // 順序：リクエストID →（Bearerトークン処理）→ アクセスログ
         http.addFilterBefore(requestIdFilter, BearerTokenAuthenticationFilter.class);
-        http.addFilterAfter(accessLogFilter, BearerTokenAuthenticationFilter.class);
+        http.addFilterAfter(accessLogFilter, org.springframework.security.web.context.SecurityContextHolderFilter.class);
 
         return http.build();
     }

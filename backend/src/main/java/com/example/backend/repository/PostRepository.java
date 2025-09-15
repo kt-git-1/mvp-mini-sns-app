@@ -49,4 +49,18 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             @Param("cursorId") Long cursorId,
             @Param("size") int size
     );
+
+    @Query(value = """
+     SELECT p.*
+       FROM posts p
+      WHERE (p.created_at < :at)
+         OR (p.created_at = :at AND p.id < :id)
+      ORDER BY p.created_at DESC, p.id DESC
+      LIMIT :limit
+    """, nativeQuery = true)
+    List<Post> keyset(
+            @Param("at") OffsetDateTime at,
+            @Param("id") Long id,
+            @Param("limit") int limit
+    );
 }

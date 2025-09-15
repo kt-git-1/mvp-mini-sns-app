@@ -1,4 +1,3 @@
-# このファイルは "local" プロファイル有効時のみ読み込まれる
 spring:
   datasource:
     url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/${POSTGRES_DB:sns_db}
