@@ -28,8 +28,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /** CORSの統合に必要なWeb層＋Securityのみ起動（DB/Flyway/JPAなし） */
 @ActiveProfiles({"test", "cors-test"})
 @WebMvcTest(controllers = { CorsTestSupport.DummyController.class })
-@AutoConfigureMockMvc(addFilters = true) // SecurityFilterChainを有効に
-@Import({ SecurityConfig.class, CorsTestSupport.TestBeans.class })
+@AutoConfigureMockMvc(addFilters = true)
+@Import({ SecurityConfig.class, com.example.backend.testsupport.WebTestBeans.class })
 class CorsIntegrationTest {
 
     @Autowired
@@ -129,40 +129,6 @@ class CorsIntegrationTest {
 /** テスト用サポート（依存Beanのスタブ＋ダミーController） */
 @Profile("cors-test")
 class CorsTestSupport {
-
-    @TestConfiguration
-    @Profile("cors-test")
-    static class TestBeans {
-
-        /** RequestIdFilterの簡易版（レスポンスにX-Request-IDを入れるだけ） */
-        @Bean com.example.backend.web.log.RequestIdFilter requestIdFilter() {
-            return new com.example.backend.web.log.RequestIdFilter() {
-                @Override
-                protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
-                        throws java.io.IOException, jakarta.servlet.ServletException {
-                    res.setHeader("X-Request-ID", "test-" + System.nanoTime());
-                    chain.doFilter(req, res);
-                }
-            };
-        }
-
-        /** AccessLogFilterはNo-opスタブで十分 */
-        @Bean com.example.backend.web.log.AccessLogFilter accessLogFilter() {
-            return new com.example.backend.web.log.AccessLogFilter() {
-                @Override
-                protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
-                        throws java.io.IOException, jakarta.servlet.ServletException {
-                    chain.doFilter(req, res);
-                }
-            };
-        }
-
-        /** JSON出力するだけのダミー（実装差異あれば必要に応じて調整） */
-        @Bean com.example.backend.web.error.ErrorResponseWriter errorResponseWriter(com.fasterxml.jackson.databind.ObjectMapper om) {
-            return new com.example.backend.web.error.ErrorResponseWriter(om);
-        }
-    }
-
     /** /health と /posts の最小実装（ビジネスロジック不要） */
     @RestController
     @Profile("cors-test")
