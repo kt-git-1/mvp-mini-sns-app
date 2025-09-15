@@ -34,10 +34,13 @@ public class WebTestBeans {
     public com.example.backend.web.log.AccessLogFilter accessLogFilter() {
         return new com.example.backend.web.log.AccessLogFilter() {
             @Override
-            protected void doFilterInternal(
-                    HttpServletRequest req, HttpServletResponse res, FilterChain chain)
+            public void doFilter(
+                    jakarta.servlet.ServletRequest request,
+                    jakarta.servlet.ServletResponse response,
+                    jakarta.servlet.FilterChain chain)
                     throws java.io.IOException, jakarta.servlet.ServletException {
-                chain.doFilter(req, res);
+                // テストでは素通し
+                chain.doFilter(request, response);
             }
         };
     }
