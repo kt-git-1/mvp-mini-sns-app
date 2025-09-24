@@ -21,9 +21,9 @@ public class PostController {
     @PostMapping("/posts")
     public ResponseEntity<PostDtos.PostResponse> create(
             @AuthenticationPrincipal AuthUser me,
-            @RequestBody @Valid PostDtos.CreatePostRequest req
+            @RequestBody @Valid PostDtos.PostRequest req
     ) {
-        PostDtos.PostResponse created = posts.create(me.username(), req.content());
+        PostDtos.PostResponse created = posts.create(me, req.content());
         URI location = URI.create("/posts/" + created.id());
         return ResponseEntity.created(location).body(created);
     }

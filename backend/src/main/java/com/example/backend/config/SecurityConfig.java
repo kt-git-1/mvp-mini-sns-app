@@ -109,8 +109,8 @@ public class SecurityConfig {
     Converter<Jwt, AbstractAuthenticationToken> jwtAuthUserConverter() {
         var rolesConv = new JwtGrantedAuthoritiesConverter();
         rolesConv.setAuthoritiesClaimName("roles"); // 発行側のclaim名に合わせる
-        rolesConv.setAuthorityPrefix("ROLE_");
-
+        rolesConv.setAuthorityPrefix("ROLE_")
+;
         return jwt -> {
             var authorities = rolesConv.convert(jwt);
 

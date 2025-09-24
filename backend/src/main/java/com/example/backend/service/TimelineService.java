@@ -7,7 +7,6 @@ import com.example.backend.pagination.CursorCodec;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.sql.Timestamp;
 import java.time.OffsetDateTime;
 
 @Service
