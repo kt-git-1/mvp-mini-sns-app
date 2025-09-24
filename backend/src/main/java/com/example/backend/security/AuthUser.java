@@ -10,8 +10,4 @@ public record AuthUser(Long id, String username, Set<String> roles) implements S
         if (username == null || username.isBlank()) username = "user-" + id;
         roles = (roles == null) ? Set.of() : Set.copyOf(roles);
     }
-
-    public boolean hasRole(String role) {
-        return roles.contains(role);
-    }
 }

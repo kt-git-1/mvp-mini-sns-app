@@ -20,5 +20,4 @@ public class AuthDtos {
     ) {}
 
     public record SignupResponse(Long id, String username) {}
-    public record LoginOkResponse(String status) {}
 }

@@ -3,7 +3,6 @@ package com.example.backend.web;
 import com.example.backend.web.dto.TimelineDtos;
 import com.example.backend.security.AuthUser;
 import com.example.backend.service.TimelineService;
-import com.example.backend.web.dto.PostDtos;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;

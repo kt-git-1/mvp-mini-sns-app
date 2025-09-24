@@ -1,6 +1,7 @@
 package com.example.backend.web;
 
-import org.springframework.security.core.Authentication;
+import com.example.backend.security.AuthUser;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
@@ -9,7 +10,7 @@ import java.util.Map;
 public class MyPageController {
 
     @GetMapping("/mypage")
-    public Map<String, Object> mypage(Authentication auth) {
-        return Map.of("username", auth.getName());
+    public Map<String, Object> mypage(@AuthenticationPrincipal AuthUser me) {
+        return Map.of("username", me.username());
     }
 }

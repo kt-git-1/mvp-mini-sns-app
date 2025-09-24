@@ -4,18 +4,13 @@ import com.example.backend.entity.Post;
 import com.example.backend.entity.User;
 import com.example.backend.repository.PostRepository;
 import com.example.backend.repository.UserRepository;
-import com.example.backend.util.CursorUtil;
+import com.example.backend.security.AuthUser;
 import com.example.backend.web.dto.PostDtos;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
-import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 @Service
 public class PostService {
@@ -29,13 +24,12 @@ public class PostService {
     }
 
     @Transactional
-    public PostDtos.PostResponse create(String username, String content) {
-        User me = users.findByUsername(username)
-                    .orElseThrow(() -> new ResponseStatusException(UNAUTHORIZED, "user not found"));
+    public PostDtos.PostResponse create(AuthUser me, String content) {
         if (content == null || content.isBlank()) {
             throw new ResponseStatusException(BAD_REQUEST, "content is blank");
         }
-        var post = posts.save(new Post(me, content.strip()));
+        User userRef = users.getReferenceById(me.id());
+        var post = posts.save(new Post(userRef, content.strip()));
         return toDto(post);
     }
 
