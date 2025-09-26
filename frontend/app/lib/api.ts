@@ -32,8 +32,9 @@ export async function login(username: string, password: string) {
   return r.json(); // 例: { authenticated: true }
 }
 
-export async function me() {
-  const r = await fetch("/api/me", { cache: "no-store" });
+/** マイページ表示(BFF /api/mypage) */
+export async function mypage() {
+  const r = await fetch("/api/mypage", { cache: "no-store" });
   if (!r.ok) throw await toError(r);
   return r.json() as Promise<{ username: string }>;
 }

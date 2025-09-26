@@ -1,15 +1,14 @@
 import { cookies } from "next/headers";
-import { me } from "../../lib/api";
+import { mypage } from "../../lib/api";
 
 export default async function Page() {
   const cookieStore = await cookies();
   const token = cookieStore.get(process.env.SESSION_COOKIE_NAME!)?.value!;
 
   try {
-    const data = await me(); // { username }
+    const data = await mypage(); // { username }
     return <div className="max-w-xl mx-auto p-6">Hello, <b>{data.username}</b></div>;
-  } catch (error) {
-    alert("エラーが発生しました: " + error);
-    return <div className="max-w-xl mx-auto p-6">エラーが発生しました: {error as string}</div>;
+  } catch (e: any) {
+    return <div className="max-w-xl mx-auto p-6">エラーが発生しました: {e?.message}</div>;
   }
 }
